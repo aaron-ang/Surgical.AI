@@ -1,0 +1,9 @@
+*.pt
+*.jpg
+*.txt
+*.zip
+
+/backend/Experiments/dataset_images/
+/backend/Experiments/roboflow/
+/backend/Experiments/runs
+
