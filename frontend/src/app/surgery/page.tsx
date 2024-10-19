@@ -5,7 +5,7 @@ import SurgicalChat from '@/components/surgical-chat'
 export default function SurgeryPage() {
   return (
     
-    <div>
+    <div className='flex flex-col h-screen'>
       <SurgicalHeader />
       
       <SurgicalChat />
