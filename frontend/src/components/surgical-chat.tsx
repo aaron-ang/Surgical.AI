@@ -151,7 +151,7 @@ export default function SurgicalChat() {
         )}
       </div>
       <div className='mb-[33px] ml-[24px]'>
-      <SoundBar />
+        <SoundBar />
       </div>
       
     </div>
