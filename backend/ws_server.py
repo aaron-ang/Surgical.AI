@@ -7,11 +7,11 @@ import base64
 import asyncio
 from ultralytics import YOLO
 
-model = YOLO("./Experiments/runs/segment/train/weights/best.pt")
+model = YOLO("./best.pt")
 
 PORT = 8080
 
-# Initialize video capture
+# # Initialize video capture
 cap = cv2.VideoCapture(0)  # CHANGE THIS TO THE INPUT STREAM FOR THE HARDWARE
 class_names = {0: 'forceps', 1: 'gauze', 2: 'scissors'}
 colors = [(255, 42, 4), (235, 219, 11), (243, 243, 243)]
@@ -30,6 +30,7 @@ async def handle_connection(ws: websockets.WebSocketClientProtocol):
 
         # Get detection result
         result = model(resized_frame, verbose=False, conf = 0.4)
+        results.append(result)
         # Annotate the frame
         annotated_frame = result[0].plot(boxes = False)
         
@@ -52,7 +53,7 @@ async def handle_connection(ws: websockets.WebSocketClientProtocol):
 
         _, buffer = cv2.imencode(".jpg", annotated_frame)
         jpg_as_text = base64.b64encode(buffer).decode("utf-8")
-        await ws.send("image:"+jpg_as_text)
+        await ws.send(jpg_as_text)
 
         # Get the current time
         current_time = time.time()
@@ -62,6 +63,7 @@ async def handle_connection(ws: websockets.WebSocketClientProtocol):
             # Compute the best result from the last 5 seconds
             frame_idx, best_result = find_best_result(results)
 
+            mdata = '[]'
             # Save the best result to the list
             if best_result is not None:
                 # best_results.append((frame_idx, best_result))
@@ -74,8 +76,9 @@ async def handle_connection(ws: websockets.WebSocketClientProtocol):
 
                 # Map the class indices to their corresponding class names
                 present_classes = [class_names[int(cls)] for cls in class_indices if int(cls) in class_names]
-                present_classes_string = json.dumps(present_classes)
-                await ws.send("metadata:"+present_classes_string)
+                mdata = json.dumps(present_classes)
+                                   
+            await ws.send(mdata)
 
             # Reset the time and clear the results for the next 5 seconds
             start_time = current_time
