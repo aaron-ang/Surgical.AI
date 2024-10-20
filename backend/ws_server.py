@@ -12,7 +12,7 @@ model = YOLO("./Experiments/runs/segment/train/weights/best.pt")
 PORT = 8080
 
 # Initialize video capture
-cap = cv2.VideoCapture(1)  # CHANGE THIS TO THE INPUT STREAM FOR THE HARDWARE
+cap = cv2.VideoCapture(0)  # CHANGE THIS TO THE INPUT STREAM FOR THE HARDWARE
 class_names = {0: 'forceps', 1: 'gauze', 2: 'scissors'}
 colors = [(255, 42, 4), (235, 219, 11), (243, 243, 243)]
 
@@ -129,7 +129,7 @@ def find_best_result(results):
 
 
 async def start_server():
-    server = await websockets.serve(handle_connection, "localhost", PORT)
+    server = await websockets.serve(handle_connection, "localhost", PORT, process_request=None)
     print(f"WebSocket server started on port {PORT}")
     await server.wait_closed()
 
