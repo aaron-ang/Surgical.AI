@@ -10,7 +10,7 @@ export default function SurgeryPage() {
     <div className='flex flex-col h-screen'>
       <SurgicalHeader />
       
-      <div className='flex flex-row flex-1'>
+      <div className='flex flex-row'>
         <SurgicalChat />
         <SurgicalVideo />
       </div>

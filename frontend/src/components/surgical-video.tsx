@@ -2,7 +2,7 @@ import React from 'react'
 
 const SurgicalVideo = () => {
   return (
-    <div className='w-[1117px] h-[926px]'>surgical-video</div>
+    <div className='w-[1117px] h-[886.42px]'>surgical-video</div>
   )
 }
 
