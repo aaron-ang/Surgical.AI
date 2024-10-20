@@ -13,6 +13,7 @@ from ultralytics import YOLO
 import os
 from moviepy.editor import ImageSequenceClip
 
+from gemini_agent import get_context
 
 model = YOLO("./best.pt")
 
