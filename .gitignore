@@ -4,6 +4,7 @@
 *.zip
 *.yaml
 *.csv
+*.png
 
 /backend/Experiments/data/
 /backend/Experiments/dataset_images/
