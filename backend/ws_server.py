@@ -5,6 +5,7 @@ import cv2
 import websockets
 import base64
 import asyncio
+import numpy as np
 import tempfile
 import uuid
 import firebase_admin
@@ -17,11 +18,17 @@ from gemini_agent import get_context
 
 model = YOLO("./best.pt")
 
+lower_hsv = np.array([64, 70, 51])
+upper_hsv = np.array([102, 255, 255])
+
+
 PORT = 8080
 INTERVAL = 5
+SMALL_INTERVAL = 4
+CONFIDENCE = 0.4
 
 # Initialize video capture
-cap = cv2.VideoCapture(0)  # CHANGE THIS TO THE INPUT STREAM FOR THE HARDWARE
+cap = cv2.VideoCapture(1)  # CHANGE THIS TO THE INPUT STREAM FOR THE HARDWARE
 print("Camera initialized")
 
 cred = credentials.Certificate(
@@ -45,7 +52,6 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
     results = []
     frames = []
     start_time = time.time()
-
     try:
         while cap.isOpened():
             ret, frame = cap.read()
@@ -54,10 +60,11 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
             resized_frame = cv2.resize(frame, (640, 480))
 
             # Get detection result
-            result = model(resized_frame, verbose=False, conf=0.4)
+            result = model(resized_frame, verbose=False, conf=CONFIDENCE)
             results.append(result)
             # Annotate the frame
             annotated_frame = result[0].plot(boxes=False)
+            segmented_frame = result[0].plot(boxes=False)
 
             drawn = set()
             for detection in result[0].boxes.data:
@@ -78,39 +85,44 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
             frames.append(annotated_frame)
             _, buffer = cv2.imencode(".jpg", annotated_frame)
             img_b64 = base64.b64encode(buffer).decode("utf-8")
-            await ws.send("image" + img_b64)
+            await ws.send("image:" + img_b64)
+
+            context = {}
+
+            mdata = []
+            # mdata_str = json.dumps(mdata, indent=4)
+            
 
             # Get the current time
             current_time = time.time()
 
-            if current_time - start_time >= INTERVAL:
-                video_path = f"{current_time}.mp4"
-                batched_video_bytes = get_batched_video(frames)
-                upload_video_to_firebase(batched_video_bytes, video_path)
+            if current_time - start_time >= SMALL_INTERVAL:
                 frame_idx, best_result = find_best_result(results)
-                # visible_tools = []
-
-                # Save the best result to the list
                 if best_result:
-                    # metadata = best_result[0].boxes.data
+                    seen = set()
+                    # Save the best result to the list
+                    
+                    metadata = best_result[0].boxes.data
                     # Convert the tensor to a Python list and then to a set of unique class indices
-                    # class_indices = set(metadata.tolist())
-                    # visible_tools = [
-                    #     class_names[int(cls)]
-                    #     for cls in class_indices
-                    #     if int(cls) in class_names
-                    # ]
-                    _, br_buffer = cv2.imencode(".jpg", frames[frame_idx])
-                    img_b64 = base64.b64encode(br_buffer).decode("utf-8")
+                    hsv_image = cv2.cvtColor(segmented_frame, cv2.COLOR_BGR2HSV)
+                    mask = cv2.inRange(hsv_image, lower_hsv, upper_hsv)
 
-                mdata = []
+                    for x1, y1, x2, y2, conf, cls in metadata:
+                        cls = int(cls)
+                        if conf > CONFIDENCE and cls not in seen:
+                            seen.add(cls)
+                            # Check if the two points are in the mask
+                            x1, y1, x2, y2 = min(int(x1), 639), min(int(y1), 479) , min(int(x2), 639), min(int(y2), 479)
+                            if mask[y1, x1] != 0 and mask[y2, x2] != 0:
+                                context[class_names[cls]] = "in place"
+                            else:
+                                context[class_names[cls]] = "out of place"   
 
-                context = await get_context(img_b64)
+                
                 for tool in last_seen:
                     status = "missing"
                     if tool in context:
                         status = context[tool]
-                        last_seen[tool] = video_path
                     mdata.append(
                         {
                             "tool": tool,
@@ -119,12 +131,29 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                         }
                     )
 
+                results = []
                 mdata_str = json.dumps(mdata, indent=4)
                 await ws.send(mdata_str)
 
+            if current_time - start_time >= INTERVAL:
+                video_path = f"{current_time}.mp4"
+                batched_video_bytes = get_batched_video(frames)
+                upload_video_to_firebase(batched_video_bytes, video_path)
+                frame_idx, best_result = find_best_result(results)
+            
+
+                for md in mdata:
+                    if md["tool"] in context:
+                        last_seen[md["tool"]] = video_path
+                        md["last_seen"] = last_seen[md["tool"]]
+
+
                 start_time = current_time
-                results = []
                 frames = []
+
+
+                mdata_str = json.dumps(mdata, indent=4)
+                await ws.send(mdata_str)
 
     except Exception as e:
         print(e)
