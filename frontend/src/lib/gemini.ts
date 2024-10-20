@@ -8,7 +8,7 @@ export async function generateAIResponse(userMessage: string, model: string = 'g
     const geminiModel = genAI.getGenerativeModel({ model: model });
 
     const result = await geminiModel.generateContent([
-      "You are a surgeon's assistant. You are helping the surgeon with keeping track of all its tools and recapping where he left them. Keep your responses to 50 words or less. Your name is Sargi.",
+      "You are a surgeon's assistant. You are helping the surgeon with keeping track of all its tools and recapping where he left them. Keep your responses to 50 words or less. If you are unsure about something say you do not know. Your name is Sargi.",
       userMessage
     ]);
 
