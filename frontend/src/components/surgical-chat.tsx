@@ -4,6 +4,7 @@ import { createClient, LiveTranscriptionEvents, LiveClient, LiveTTSEvents } from
 import { TextGenerateEffect } from './ui/text-generate-effect'; // Assuming you have this component
 import { generateAIResponse } from '../lib/gemini';
 import SurgicalTools from './surgical-tools';
+import ItemOverlay from './surgical-replay';
 
 
 interface Message {
@@ -25,6 +26,8 @@ const SurgicalChat: React.FC = () => {
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [detectedItem, setDetectedItem] = useState<string | null>(null);
+
 
   useEffect(() => {
     // Initialize audio context
@@ -151,6 +154,26 @@ const SurgicalChat: React.FC = () => {
     }
     console.log('Recording stopped.');
   };
+  const handleReplayRequest = async (item: string) => {
+    console.log("Replaying item:", item);
+    const lowercaseItem = item.toLowerCase();
+  
+    if (lowercaseItem.includes('forceps')) {
+      console.log("Forceps detected");
+      setDetectedItem('Forceps');
+    } else if (lowercaseItem.includes('scissors')) {
+      console.log("Scissors detected");
+      setDetectedItem('Scissors');
+    } else if (lowercaseItem.includes('gauze')) {
+      console.log("Gauze detected");
+      setDetectedItem('Gauze');
+    } else {
+      console.log("No specific item detected");
+    }
+  }
+  const handleCloseOverlay = () => {
+    setDetectedItem(null);
+  }
 
   const resetSilenceTimeout = (transcript: string) => {
     if (silenceTimeoutRef.current) {
@@ -162,11 +185,17 @@ const SurgicalChat: React.FC = () => {
       try {
         const userMessage = transcript;
         console.log("User message being sent to OpenAI: " + userMessage);
-        const aiResponse = await generateAIResponse(userMessage);
-        if (aiResponse !== null) {
-          console.log('Adding AI message:', aiResponse);
-          setMessages(prevMessages => [...prevMessages, { sender: 'ai', text: aiResponse }]);
-          await generateAndPlayTTS(aiResponse);
+        const replayMatch = userMessage.match(/play\s+(.+)/i);
+        if (replayMatch) {
+          const itemToReplay = replayMatch[1];
+          await handleReplayRequest(itemToReplay);
+        } else {
+          const aiResponse = await generateAIResponse(userMessage);
+          if (aiResponse !== null) {
+            console.log('Adding AI message:', aiResponse);
+            setMessages(prevMessages => [...prevMessages, { sender: 'ai', text: aiResponse }]);
+            await generateAndPlayTTS(aiResponse);
+          }
         }
       } catch (error) {
         console.error('Error generating AI response:', error);
@@ -399,6 +428,9 @@ const SurgicalChat: React.FC = () => {
             Error: {error}
           </div>
         )}
+        {detectedItem && (
+        <ItemOverlay item={detectedItem} onClose={handleCloseOverlay} />
+      )}
       </div>
   );
 };
