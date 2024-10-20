@@ -3,7 +3,11 @@
 *.txt
 *.zip
 
+/backend/Experiments/data/
 /backend/Experiments/dataset_images/
 /backend/Experiments/roboflow/
-/backend/Experiments/runs
+/backend/Experiments/runs/
+/backend/Experiments/roboflow2/
+/backend/Experiments/runs2/
 
+*.env
