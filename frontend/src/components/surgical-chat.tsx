@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { createClient, LiveTranscriptionEvents, LiveClient, LiveTTSEvents } from "@deepgram/sdk";
 import { TextGenerateEffect } from './ui/text-generate-effect'; // Assuming you have this component
-import { generateAIResponse } from '../lib/openai';
+import { generateAIResponse } from '../lib/gemini';
+import SurgicalTools from './surgical-tools';
 
 
 interface Message {
@@ -317,7 +318,9 @@ const SurgicalChat: React.FC = () => {
         <audio ref={audioRef} style={{ display: 'none' }} />
 
         <div className="flex-1 overflow-hidden flex flex-col">
+        <SurgicalTools />
           <div ref={chatContainerRef} className="flex-1 p-4 space-y-4 overflow-y-auto">
+           
             {messages.map((message, index) => (
               <div
                 key={index}
