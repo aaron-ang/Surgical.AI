@@ -6,9 +6,13 @@ import websockets
 import base64
 import asyncio
 import tempfile
+import uuid
 import firebase_admin
 from firebase_admin import credentials, storage
 from ultralytics import YOLO
+import os
+from moviepy.editor import ImageSequenceClip
+
 
 model = YOLO("./best.pt")
 
@@ -126,23 +130,41 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
 
 def get_batched_video(frames):
     fps = len(frames) / INTERVAL
-    frame_height, frame_width, _ = frames[0].shape
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    with tempfile.NamedTemporaryFile(suffix=".mp4") as f:
-        out = cv2.VideoWriter(f.name, fourcc, fps, (frame_width, frame_height))
-        for frame in frames:
-            out.write(frame)
+    # Convert frames from BGR (OpenCV format) to RGB (MoviePy format)
+    frames_rgb = [cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) for frame in frames]
+    clip = ImageSequenceClip(frames_rgb, fps=fps)
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+        temp_video_path = f.name
+    clip.write_videofile(temp_video_path, codec="libx264", audio=False, verbose=False, logger=None)
+    with open(temp_video_path, 'rb') as f:
+        video_bytes = f.read()
+    # Clean up the temporary file
+    os.remove(temp_video_path)
+    return video_bytes
 
-        out.release()
-
-        f.seek(0)
-        return f.read()
 
 
 def upload_video_to_firebase(video_bytes: bytes, destination_path: str):
     bucket = storage.bucket()
     blob = bucket.blob(destination_path)
-    blob.upload_from_string(video_bytes, content_type="video/mp4")
+
+    # Generate a UUID for the download token
+    token = uuid.uuid4()
+
+    # Set the metadata including the download token
+    blob.metadata = {
+        'firebaseStorageDownloadTokens': str(token),
+    }
+
+    # Upload the file with the specified content type
+    blob.upload_from_string(video_bytes, content_type='video/mp4')
+
+    # Construct the download URL
+    download_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{blob.name}?alt=media&token={token}"
+
+    print(f"Download URL: {download_url}")
+
+
 
 
 def find_best_result(results):
