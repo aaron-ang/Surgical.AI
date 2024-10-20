@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { createClient, LiveTranscriptionEvents, LiveClient, LiveTTSEvents } from "@deepgram/sdk";
 import { TextGenerateEffect } from './ui/text-generate-effect'; // Assuming you have this component
@@ -154,7 +154,7 @@ const SurgicalChat: React.FC = () => {
     }
     console.log('Recording stopped.');
   };
-  const handleReplayRequest = async (item: string) => {
+  const handleReplayRequest = useCallback(async (item: string) => {
     console.log("Replaying item:", item);
     const lowercaseItem = item.toLowerCase();
   
@@ -170,10 +170,12 @@ const SurgicalChat: React.FC = () => {
     } else {
       console.log("No specific item detected");
     }
-  }
-  const handleCloseOverlay = () => {
+  }, []);
+
+  const handleCloseOverlay = useCallback(() => {
     setDetectedItem(null);
-  }
+  }, []);
+  
 
   const resetSilenceTimeout = (transcript: string) => {
     if (silenceTimeoutRef.current) {
@@ -423,11 +425,7 @@ const SurgicalChat: React.FC = () => {
             </div>
           </div>
         </div>
-        {error && (
-          <div className="p-4 bg-red-100 text-red-700">
-            Error: {error}
-          </div>
-        )}
+        
         {detectedItem && (
         <ItemOverlay item={detectedItem} onClose={handleCloseOverlay} />
       )}

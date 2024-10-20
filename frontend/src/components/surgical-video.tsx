@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useToolContext } from './tool-context';
 
 const SurgicalVideo = () => {
     const [imageData, setImageData] = useState<string>("");
-    const [metadata, setMetadata] = useState<Record<string, any>>({});
+    const { updateToolData } = useToolContext();
     const ws = useRef<WebSocket | null>(null);
 
     useEffect(() => {
@@ -16,15 +17,15 @@ const SurgicalVideo = () => {
         ws.current.onmessage = (event: MessageEvent) => {
             const data = event.data;
             if (typeof data === "string") {
-                if (data.startsWith("/")) {
-                    setImageData(data);
+                if (data.startsWith("image:")) {
+                    setImageData(data.slice(6));
                 } else if (data.startsWith("[")) {
-                  
                     try {
-                        const parsedMetadata = JSON.parse(data);
-                        setMetadata(parsedMetadata);
+                        const parsedData = JSON.parse(data);
+                        updateToolData(parsedData);
+                        console.log(parsedData);
                     } catch (error) {
-                        console.error("Error parsing metadata:", error);
+                        console.error("Error parsing tool data:", error);
                     }
                 }
             }
@@ -47,7 +48,7 @@ const SurgicalVideo = () => {
     }, []);
 
     return (
-        <div className="w-full max-w-[1117px] h-[886.42px] flex flex-col items-center justify-center bg-gray-100 rounded-lg shadow-md">
+        <div className="w-[1117px] flex flex-col items-center justify-center bg-gray-100 rounded-lg shadow-md">
             <img
                 src={
                     imageData
@@ -55,9 +56,8 @@ const SurgicalVideo = () => {
                         : undefined
                 }
                 alt="Surgical video frame"
-                className="max-w-full max-h-full object-contain"
+                className="w-[1117px] object-contain"
             />
-            <p>{JSON.stringify(metadata)}</p>
         </div>
     );
 };
