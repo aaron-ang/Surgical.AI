@@ -1,6 +1,5 @@
 *.pt
 *.jpg
-*.txt
 *.zip
 
 /backend/Experiments/data/
