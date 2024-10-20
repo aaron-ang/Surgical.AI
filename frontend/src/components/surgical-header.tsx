@@ -26,7 +26,7 @@ export default function SurgicalHeader() {
   }
 
   return (
-    <header className="flex items-center justify-between bg-[#F6F6F6] shadow-md">
+    <header className="flex items-center justify-between bg-[#F6F6F6] shadow-sm z-[2]">
       <div className="ml-[24px] mb-[16px] mt-[16px] flex items-center">
       <Link href="/" className="cursor-pointer">
           <Image

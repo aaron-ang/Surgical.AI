@@ -314,7 +314,7 @@ const SurgicalChat: React.FC = () => {
   };
 
     return (
-        <div className="w-[395px] h-screen flex flex-col bg-gray-100 overflow-hidden">
+        <div className="w-[395px] h-screen flex flex-col bg-[#FFFFFF] overflow-hidden">
         <audio ref={audioRef} style={{ display: 'none' }} />
 
         <div className="flex-1 overflow-hidden flex flex-col">
