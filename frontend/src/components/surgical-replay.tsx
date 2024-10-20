@@ -11,9 +11,16 @@ interface ItemOverlayProps {
 const ItemOverlay: React.FC<ItemOverlayProps> = ({ item, onClose }) => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
   const { toolData } = useToolContext();
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Trigger open animation on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Fetch video URL when component mounts or when 'item' changes
   useEffect(() => {
@@ -47,7 +54,7 @@ const ItemOverlay: React.FC<ItemOverlayProps> = ({ item, onClose }) => {
     console.log('Setting up auto-close timer');
     timerRef.current = setTimeout(() => {
       console.log('Auto-close timer triggered');
-      onClose();
+      closeOverlay();
     }, 7000); // Close after 7 seconds
 
     // Clean up timer on component unmount
@@ -57,7 +64,7 @@ const ItemOverlay: React.FC<ItemOverlayProps> = ({ item, onClose }) => {
         clearTimeout(timerRef.current);
       }
     };
-  }, [onClose]); // Only depends on 'onClose'
+  }, []);
 
   // Auto-play video when URL is set
   useEffect(() => {
@@ -73,15 +80,19 @@ const ItemOverlay: React.FC<ItemOverlayProps> = ({ item, onClose }) => {
 
   const closeOverlay = useCallback(() => {
     console.log('Closing overlay');
+    setIsVisible(false);
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
-    onClose();
+    // Delay the actual closing to allow for the animation
+    setTimeout(() => {
+      onClose();
+    }, 300); // Match this with the CSS transition duration
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-[#46B5AA] bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white rounded-[5px] w-[1216px] h-[764px] relative">
+    <div className={`fixed inset-0 bg-[#46B5AA] bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`bg-white rounded-[5px] w-[1216px] h-[764px] relative transition-all duration-300 ease-in-out ${isVisible ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`}>
         <button
           onClick={closeOverlay}
           className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"

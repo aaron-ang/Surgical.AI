@@ -27,7 +27,16 @@ const SurgicalChat: React.FC = () => {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [detectedItem, setDetectedItem] = useState<string | null>(null);
+  const [showOverlay, setShowOverlay] = useState(false);
 
+  useEffect(() => {
+    if (detectedItem) {
+      // Short delay to allow for the mount animation
+      setTimeout(() => setShowOverlay(true), 50);
+    } else {
+      setShowOverlay(false);
+    }
+  }, [detectedItem]);
 
   useEffect(() => {
     // Initialize audio context
@@ -426,9 +435,9 @@ const SurgicalChat: React.FC = () => {
           </div>
         </div>
         
-        {detectedItem && (
-        <ItemOverlay item={detectedItem} onClose={handleCloseOverlay} />
-      )}
+        {detectedItem && showOverlay && (
+          <ItemOverlay item={detectedItem} onClose={handleCloseOverlay} />
+        )}
       </div>
   );
 };
