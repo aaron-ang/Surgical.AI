@@ -8,6 +8,7 @@
 *.json
 
 .DS_Store
+__pycache__
 
 /backend/Experiments/data/
 /backend/Experiments/dataset_images/

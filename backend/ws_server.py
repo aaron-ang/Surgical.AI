@@ -88,24 +88,24 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                 batched_video_bytes = get_batched_video(frames)
                 upload_video_to_firebase(batched_video_bytes, video_path)
                 frame_idx, best_result = find_best_result(results)
-                visible_tools = []
+                # visible_tools = []
+
                 # Save the best result to the list
                 if best_result:
-                    metadata = best_result[0].boxes.cls
+                    # metadata = best_result[0].boxes.data
                     # Convert the tensor to a Python list and then to a set of unique class indices
-                    class_indices = set(metadata.tolist())
+                    # class_indices = set(metadata.tolist())
+                    # visible_tools = [
+                    #     class_names[int(cls)]
+                    #     for cls in class_indices
+                    #     if int(cls) in class_names
+                    # ]
+                    _, br_buffer = cv2.imencode(".jpg", frames[frame_idx])
+                    img_b64 = base64.b64encode(br_buffer).decode("utf-8")
 
-                    visible_tools = [
-                        class_names[int(cls)]
-                        for cls in class_indices
-                        if int(cls) in class_names
-                    ]
-                
-                _, br_buffer = cv2.imencode(".jpg", best_result)
-                best_result_b64 = base64.b64encode(br_buffer).decode("utf-8") 
                 mdata = []
 
-                context = await get_context(best_result_b64)
+                context = await get_context(img_b64)
                 for data in context:
                     if data["status"] != "missing":
                         last_seen[data["tool"]] = video_path
@@ -114,10 +114,9 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
 
                 mdata_str = json.dumps(mdata, indent=4)
                 await ws.send(mdata_str)
-                print(mdata_str)
 
                 start_time = current_time
-                results = []  # Clear results for the next window
+                results = []
                 frames = []
 
     except Exception as e:
