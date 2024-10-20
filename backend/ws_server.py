@@ -77,8 +77,8 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                 )
             frames.append(annotated_frame)
             _, buffer = cv2.imencode(".jpg", annotated_frame)
-            jpg_as_text = base64.b64encode(buffer).decode("utf-8")
-            await ws.send("image:" + jpg_as_text)
+            img_b64 = base64.b64encode(buffer).decode("utf-8")
+            await ws.send(img_b64)
 
             # Get the current time
             current_time = time.time()
@@ -87,34 +87,28 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                 video_path = f"{current_time}.mp4"
                 batched_video_bytes = get_batched_video(frames)
                 upload_video_to_firebase(batched_video_bytes, video_path)
-                frame_idx, best_result = find_best_result(results)
+                context = await get_context(img_b64)
 
-                visible_tools = []
+                # visible_tools = []
+                # frame_idx, best_result = find_best_result(results)
+                # # Save the best result to the list
+                # if best_result:
+                #     metadata = best_result[0].boxes.cls
+                #     # Convert the tensor to a Python list and then to a set of unique class indices
+                #     class_indices = set(metadata.tolist())
 
-                # Save the best result to the list
-                if best_result:
-                    metadata = best_result[0].boxes.cls
-                    # Convert the tensor to a Python list and then to a set of unique class indices
-                    class_indices = set(metadata.tolist())
-
-                    visible_tools = [
-                        class_names[int(cls)]
-                        for cls in class_indices
-                        if int(cls) in class_names
-                    ]
+                #     visible_tools = [
+                #         class_names[int(cls)]
+                #         for cls in class_indices
+                #         if int(cls) in class_names
+                #     ]
 
                 mdata = []
 
-                for tool in last_seen:
-                    if tool in visible_tools:
-                        last_seen[tool] = video_path
-                    data = {
-                        "tool": tool,
-                        "status": (
-                            "in place" if tool in visible_tools else "out of place"
-                        ),
-                        "last_seen": last_seen[tool],
-                    }
+                for data in context:
+                    if data["status"] != "missing":
+                        last_seen[data["tool"]] = video_path
+                    data["last_seen"] = last_seen[data["tool"]]
                     mdata.append(data)
 
                 mdata_str = json.dumps(mdata, indent=4)
@@ -134,15 +128,20 @@ def get_batched_video(frames):
     # Convert frames from BGR (OpenCV format) to RGB (MoviePy format)
     frames_rgb = [cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) for frame in frames]
     clip = ImageSequenceClip(frames_rgb, fps=fps)
+
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
         temp_video_path = f.name
-    clip.write_videofile(temp_video_path, codec="libx264", audio=False, verbose=False, logger=None)
-    with open(temp_video_path, 'rb') as f:
+
+    clip.write_videofile(
+        temp_video_path, codec="libx264", audio=False, verbose=False, logger=None
+    )
+
+    with open(temp_video_path, "rb") as f:
         video_bytes = f.read()
+
     # Clean up the temporary file
     os.remove(temp_video_path)
     return video_bytes
-
 
 
 def upload_video_to_firebase(video_bytes: bytes, destination_path: str):
@@ -154,18 +153,11 @@ def upload_video_to_firebase(video_bytes: bytes, destination_path: str):
 
     # Set the metadata including the download token
     blob.metadata = {
-        'firebaseStorageDownloadTokens': str(token),
+        "firebaseStorageDownloadTokens": str(token),
     }
 
     # Upload the file with the specified content type
-    blob.upload_from_string(video_bytes, content_type='video/mp4')
-
-    # Construct the download URL
-    download_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{blob.name}?alt=media&token={token}"
-
-    print(f"Download URL: {download_url}")
-
-
+    blob.upload_from_string(video_bytes, content_type="video/mp4")
 
 
 def find_best_result(results):
