@@ -1,3 +1,4 @@
+firebase_admin==6.5.0
 opencv_python==4.10.0.82
 ultralytics==8.3.18
 websockets==13.1

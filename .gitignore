@@ -1,18 +1,20 @@
-
-# *.pt
 *.jpg
 *.zip
 *.yaml
 *.csv
 *.png
+*.pt
+*.env
+*.json
+
+.DS_Store
 
 /backend/Experiments/data/
 /backend/Experiments/dataset_images/
 /backend/Experiments/roboflow/
-# /backend/Experiments/runs/*
+/backend/Experiments/runs/*
 /backend/Experiments/roboflow2/
 /backend/Experiments/runs2/
+/backend/Experiments/roboflow3/
+/backend/Experiments/runs3/
 /backend/Experiments/runs/segment/train/weights/last.pt
-
-
-*.env
