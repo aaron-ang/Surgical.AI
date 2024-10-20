@@ -7,7 +7,7 @@ import base64
 import asyncio
 import tempfile
 import firebase_admin
-from firebase_admin import credentials, storage, firestore
+from firebase_admin import credentials, storage
 from ultralytics import YOLO
 
 model = YOLO("./best.pt")
@@ -32,6 +32,7 @@ firebase_admin.initialize_app(
 
 class_names = {0: "forceps", 1: "gauze", 2: "scissors"}
 colors = [(255, 42, 4), (235, 219, 11), (243, 243, 243)]
+last_seen = {tool: "" for tool in class_names.values()}
 
 
 async def handle_connection(ws: websockets.WebSocketServerProtocol):
@@ -83,7 +84,7 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                 upload_video_to_firebase(batched_video_bytes, video_path)
                 frame_idx, best_result = find_best_result(results)
 
-                mdata = []
+                visible_tools = []
 
                 # Save the best result to the list
                 if best_result:
@@ -91,15 +92,29 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                     # Convert the tensor to a Python list and then to a set of unique class indices
                     class_indices = set(metadata.tolist())
 
-                    # Map the class indices to their corresponding class names
-                    mdata = [
+                    visible_tools = [
                         class_names[int(cls)]
                         for cls in class_indices
                         if int(cls) in class_names
                     ]
 
-                await ws.send(json.dumps(mdata))
-                upload_metadata_to_firebase(mdata, video_path)
+                mdata = []
+
+                for tool in last_seen:
+                    if tool in visible_tools:
+                        last_seen[tool] = video_path
+                    data = {
+                        "tool": tool,
+                        "status": (
+                            "in place" if tool in visible_tools else "out of place"
+                        ),
+                        "last_seen": last_seen[tool],
+                    }
+                    mdata.append(data)
+
+                mdata_str = json.dumps(mdata, indent=4)
+                await ws.send(mdata_str)
+                print(mdata_str)
 
                 start_time = current_time
                 results = []  # Clear results for the next window
@@ -113,7 +128,7 @@ def get_batched_video(frames):
     fps = len(frames) / INTERVAL
     frame_height, frame_width, _ = frames[0].shape
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    with tempfile.TemporaryFile(suffix=".mp4") as f:
+    with tempfile.NamedTemporaryFile(suffix=".mp4") as f:
         out = cv2.VideoWriter(f.name, fourcc, fps, (frame_width, frame_height))
         for frame in frames:
             out.write(frame)
@@ -122,14 +137,6 @@ def get_batched_video(frames):
 
         f.seek(0)
         return f.read()
-
-
-def upload_metadata_to_firebase(metadata: list, destination_path: str):
-    client = firestore.client()
-    doc_ref = client.collection("metadata").document("most_recent")
-    update = {tool: destination_path for tool in metadata}
-    if len(update) > 0:
-        doc_ref.update(update)
 
 
 def upload_video_to_firebase(video_bytes: bytes, destination_path: str):
