@@ -24,13 +24,11 @@ class Tool(str, Enum):
 
 class ObjectContext(BaseModel, use_enum_values=True):
     tool: Tool = Field(...)
-    status: str = Field(description="in place, out of place, or missing")
+    status: str = Field(description="in place or out of place")
 
 
 class ImageContext(BaseModel):
-    context: list[ObjectContext] = Field(
-        description="return an ObjectContext for each Tool"
-    )
+    context: list[ObjectContext] = Field(...)
 
 
 output_parser = JsonOutputParser(pydantic_object=ImageContext)
@@ -56,7 +54,6 @@ async def predict_object_context(model: genai.GenerativeModel, image_b64: str):
     The surgical site is in the center of the image and it is surrounded by a colored cloth.
     If the tool is placed fully within the cloth, then it is in place.
     Else, if the tool is partially on the cloth or in the surgical site, then it is out of place.
-    Else, if it is not found in the image, then it is missing.
 
     {output_format}
 
@@ -81,7 +78,8 @@ async def get_context(image_b64: str):
     model = create_model()
     result = await predict_object_context(model, image_b64)
     result = output_parser.parse(result)
-    return result["context"]
+    context = result["context"]
+    return {tool["tool"]: tool["status"] for tool in context}
 
 
 if __name__ == "__main__":

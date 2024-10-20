@@ -106,11 +106,18 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                 mdata = []
 
                 context = await get_context(img_b64)
-                for data in context:
-                    if data["status"] != "missing":
-                        last_seen[data["tool"]] = video_path
-                    data["last_seen"] = last_seen[data["tool"]]
-                    mdata.append(data)
+                for tool in last_seen:
+                    status = "missing"
+                    if tool in context:
+                        status = context[tool]
+                        last_seen[tool] = video_path
+                    mdata.append(
+                        {
+                            "tool": tool,
+                            "status": status,
+                            "last_seen": last_seen[tool],
+                        }
+                    )
 
                 mdata_str = json.dumps(mdata, indent=4)
                 await ws.send(mdata_str)
