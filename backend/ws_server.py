@@ -1,20 +1,20 @@
-from collections import defaultdict
+import os
 import json
 import time
 import cv2
 import websockets
 import base64
 import asyncio
-import numpy as np
 import tempfile
 import uuid
+import gc
+from collections import defaultdict
+import numpy as np
 import firebase_admin
 from firebase_admin import credentials, storage
 from ultralytics import YOLO
-import os
 from moviepy.editor import ImageSequenceClip
 
-from gemini_agent import get_context
 
 model = YOLO("./best.pt")
 
@@ -28,7 +28,7 @@ SMALL_INTERVAL = 4
 CONFIDENCE = 0.4
 
 # Initialize video capture
-cap = cv2.VideoCapture(1)  # CHANGE THIS TO THE INPUT STREAM FOR THE HARDWARE
+cap = cv2.VideoCapture(0)  # CHANGE THIS TO THE INPUT STREAM FOR THE HARDWARE
 print("Camera initialized")
 
 cred = credentials.Certificate(
@@ -85,13 +85,10 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
             frames.append(annotated_frame)
             _, buffer = cv2.imencode(".jpg", annotated_frame)
             img_b64 = base64.b64encode(buffer).decode("utf-8")
-            await ws.send("image:" + img_b64)
+            await ws.send(img_b64)
 
             context = {}
-
             mdata = []
-            # mdata_str = json.dumps(mdata, indent=4)
-            
 
             # Get the current time
             current_time = time.time()
@@ -101,7 +98,6 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                 if best_result:
                     seen = set()
                     # Save the best result to the list
-                    
                     metadata = best_result[0].boxes.data
                     # Convert the tensor to a Python list and then to a set of unique class indices
                     hsv_image = cv2.cvtColor(segmented_frame, cv2.COLOR_BGR2HSV)
@@ -112,13 +108,17 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                         if conf > CONFIDENCE and cls not in seen:
                             seen.add(cls)
                             # Check if the two points are in the mask
-                            x1, y1, x2, y2 = min(int(x1), 639), min(int(y1), 479) , min(int(x2), 639), min(int(y2), 479)
+                            x1, y1, x2, y2 = (
+                                min(int(x1), 639),
+                                min(int(y1), 479),
+                                min(int(x2), 639),
+                                min(int(y2), 479),
+                            )
                             if mask[y1, x1] != 0 and mask[y2, x2] != 0:
                                 context[class_names[cls]] = "in place"
                             else:
-                                context[class_names[cls]] = "out of place"   
+                                context[class_names[cls]] = "out of place"
 
-                
                 for tool in last_seen:
                     status = "missing"
                     if tool in context:
@@ -140,20 +140,15 @@ async def handle_connection(ws: websockets.WebSocketServerProtocol):
                 batched_video_bytes = get_batched_video(frames)
                 upload_video_to_firebase(batched_video_bytes, video_path)
                 frame_idx, best_result = find_best_result(results)
-            
 
                 for md in mdata:
                     if md["tool"] in context:
                         last_seen[md["tool"]] = video_path
                         md["last_seen"] = last_seen[md["tool"]]
 
-
                 start_time = current_time
                 frames = []
-
-
-                mdata_str = json.dumps(mdata, indent=4)
-                await ws.send(mdata_str)
+                gc.collect()
 
     except Exception as e:
         print(e)
